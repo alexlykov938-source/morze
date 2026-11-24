@@ -15,6 +15,11 @@ func Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func Post(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "недопустимый метод", http.StatusMethodNotAllowed)
+		return
+	}
+
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -53,5 +58,7 @@ func Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(result))
+	if _, err := w.Write([]byte(result)); err != nil {
+		return
+	}
 }

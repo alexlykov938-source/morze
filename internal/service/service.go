@@ -35,17 +35,14 @@ func Convert(input string) (string, error) {
 }
 
 func isMorse(s string) bool {
-	hasMorse := false
-	for _, r := range s {
-		switch r {
-		case '.', '-':
-			hasMorse = true
-		case '/', ' ', '\t', '\n', '\r':
-		default:
-			return false
-		}
-	}
-	return hasMorse
+	return strings.ContainsFunc(s, func(r rune) bool { return r == '.' || r == '-' }) &&
+		!strings.ContainsFunc(s, func(r rune) bool {
+			switch r {
+			case '.', '-', '/', ' ', '\t', '\n', '\r':
+				return false
+			}
+			return true
+		})
 }
 
 func encodeToMorse(text string) (string, error) {
