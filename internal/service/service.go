@@ -3,80 +3,87 @@ package service
 import (
 	"fmt"
 	"strings"
+
+	"github.com/Yandex-Practicum/go1fl-sprint6-final/pkg/morse"
 )
 
+var convertMorseToText = morse.NewConverter(
+	morse.DefaultMorse,
+	morse.WithCharSeparator(" "),
+	morse.WithWordSeparator("   "),
+	morse.WithTrailingSeparator(false),
+	morse.WithHandler(morse.IgnoreHandler),
+)
+
+var convertInputToMorse = morse.NewConverter(
+	morse.DefaultMorse,
+	morse.WithCharSeparator(" "),
+	morse.WithLowercaseHandling(true),
+	morse.WithTrailingSeparator(false),
+	morse.WithHandler(morse.IgnoreHandler),
+)
+
+const wordSeparator = " / "
+const morseWordSeparator = "   "
+
 func Convert(input string) (string, error) {
-	var TextToMorse = map[string]string{
-		"А": ".-", "Б": "-...", "В": ".--", "Г": "--.", "Д": "-..",
-		"Е": ".", "Ё": ".", "Ж": "...-", "З": "--..", "И": "..",
-		"Й": ".---", "К": "-.-", "Л": ".-..", "М": "--", "Н": "-.",
-		"О": "---", "П": ".--.", "Р": ".-.", "С": "...", "Т": "-",
-		"У": "..-", "Ф": "..-.", "Х": "....", "Ц": "-.-.", "Ч": "---.",
-		"Ш": "----", "Щ": "--.-", "Ъ": "--.--", "Ы": "-.--", "Ь": "-..-",
-		"Э": "..-..", "Ю": "..--", "Я": ".-.-",
-
-		"0": "-----", "1": ".----", "2": "..---", "3": "...--", "4": "....-",
-		"5": ".....", "6": "-....", "7": "--...", "8": "---..", "9": "----.",
-
-		" ": "/",
-	}
-	var MorseToText = map[string]string{
-		".-": "А", "-...": "Б", ".--": "В", "--.": "Г", "-..": "Д",
-		".": "Е", "...-": "Ж", "--..": "З", "..": "И", ".---": "Й",
-		"-.-": "К", ".-..": "Л", "--": "М", "-.": "Н", "---": "О",
-		".--.": "П", ".-.": "Р", "...": "С", "-": "Т", "..-": "У",
-		"..-.": "Ф", "....": "Х", "-.-.": "Ц", "---.": "Ч", "----": "Ш",
-		"--.-": "Щ", "--.--": "Ъ", "-.--": "Ы", "-..-": "Ь", "..-..": "Э",
-		"..--": "Ю", ".-.-": "Я",
-
-		"-----": "0", ".----": "1", "..---": "2", "...--": "3", "....-": "4",
-		".....": "5", "-....": "6", "--...": "7", "---..": "8", "----.": "9",
-
-		"/": " ",
+	if isMorse(input) {
+		return decodeFromMorse(input)
 	}
 
-	if strings.ContainsAny(input, ".-/") {
-		output := ""
-		parts := strings.Split(input, " ")
+	return encodeToMorse(input)
+}
 
-		for _, p := range parts {
-			if p == "" {
-				continue
-			}
+func isMorse(s string) bool {
+	hasMorse := false
+	for _, r := range s {
+		switch r {
+		case '.', '-':
+			hasMorse = true
+		case '/', ' ', '\t', '\n', '\r':
+		default:
+			return false
+		}
+	}
+	return hasMorse
+}
 
-			if char, ok := MorseToText[p]; ok {
-				output += char
-			} else {
-				return "", fmt.Errorf("неизвестный код морзе: %s", p)
-			}
+func encodeToMorse(text string) (string, error) {
+	upper := strings.ToUpper(text)
+
+	for _, r := range upper {
+		if r == ' ' {
+			continue
 		}
 
-		return output, nil
-	} else {
-		upper := strings.ToUpper(input)
-		words := strings.Split(upper, " ")
-
-		var morseWords []string
-
-		for _, w := range words {
-			if w == "" {
-				continue
-			}
-			var codes []string
-
-			for _, r := range w {
-				code, ok := TextToMorse[string(r)]
-
-				if !ok {
-					return "", fmt.Errorf("неизвестный текст: %s", string(r))
-				}
-
-				codes = append(codes, code)
-			}
-
-			morseWords = append(morseWords, strings.Join(codes, " "))
+		if _, ok := morse.DefaultMorse[r]; !ok {
+			return "", fmt.Errorf("неизвестный текст: %s", string(r))
 		}
-
-		return strings.Join(morseWords, " / "), nil
 	}
+
+	words := strings.Split(upper, " ")
+	encoded := make([]string, 0, len(words))
+	for _, w := range words {
+		if w == "" {
+			continue
+		}
+		encoded = append(encoded, convertInputToMorse.ToMorse(w))
+	}
+
+	return strings.Join(encoded, wordSeparator), nil
+}
+
+func decodeFromMorse(morseStr string) (string, error) {
+	normalized := strings.ReplaceAll(morseStr, wordSeparator, morseWordSeparator)
+	normalized = strings.ReplaceAll(normalized, "/", morseWordSeparator)
+
+	for _, w := range strings.Split(normalized, morseWordSeparator) {
+		for _, code := range strings.Fields(w) {
+			if morse.MorseToRune(code) == 0 {
+				return "", fmt.Errorf("неизвестный код морзе: %s", code)
+			}
+		}
+	}
+
+	return convertMorseToText.ToText(normalized), nil
 }
